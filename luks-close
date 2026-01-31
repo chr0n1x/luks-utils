@@ -1,0 +1,14 @@
+#!/bin/bash -e
+
+nvmeDrive=nvme0n1p1 
+targetLUKS=onboard-luks
+
+if [ ! -z "$1" ] && [ ! -z "$2" ]; then
+  nvmeDrive="$1"
+  targetLUKS="$2"
+fi
+
+umount /srv/luks/${nvmeDrive}
+cryptsetup luksClose /dev/mapper/${targetLUKS}
+
+echo -e "LUKS share ${targetLUKS} on drive ${nvmeDrive} closed\n===" | glow

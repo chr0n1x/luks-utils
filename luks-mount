@@ -1,0 +1,81 @@
+#!/bin/bash -e
+
+if [ "$1" = "help" ]; then
+  cat <<- EOF | glow
+## Overview
+Most things that the onboard LUKS drive is used for are in the /srv dir.
+This drive and the luks commands in **/root/Code/chr0n1x/luks-utils/** were designed to mirror & encrypt data on my primary NAS for disaster recovery (DR) purposes. Within this drive there are other helper scripts and contents for backing up other targets.
+
+For example, after the drives have been mounted using **luks-mount**, you can run:
+
+  _mount-nas-shares && cd /srv/luks/nvme0n1p1/cnpg-backups && ./backup-all.sh && cd && luks-sync_
+
+## To close:
+
+  _unmount-nas-shares && luks-close_
+
+The unmount-nas-shares command unmounts any NAS shares.
+
+And then the luks-close command/script will unmount the drive that you just
+unlocked with the passphrase.
+
+It's doing something akin to the following:
+
+  _umount /srv/luks/${nvmeDrive}_
+  _cryptsetup luksClose /dev/mapper/${targetLUKS}_
+
+### NOTE: you can also pass in a target drive and LUKs share.
+
+The onboard drive is mounted to the unix device file descriptor:
+    _nvme0n1p1_
+And the LUKs share name that the drive was encrypted with is called:
+    _onboard-luks_
+
+So the luks-mount command/script will mount the encrypted LUKs share named onboard-luks within the /dev/nvme0n1p1 drive INTO the /dev/mapper/onboard-luks file descriptor
+
+If you have a different LUKS drive that you want to mount, you can do something like
+
+1. _lsblk_ to see what drives currently exist
+2. plug in the drive, make sure that the list for _lsblk_ changes; note the drive name
+3. if that drive was provisioned with a LUKS share named my-luks, you can run the following:
+
+_luks-mount device my-luks_
+
+where "device" is something like **sda**
+EOF
+
+  exit 0
+fi
+
+nvmeDrive=nvme0n1p1 
+targetLUKS=onboard-luks
+
+if [ ! -z "$1" ] && [ ! -z "$2" ]; then
+  nvmeDrive="$1"
+  targetLUKS="$2"
+fi
+
+echo -e "Mounting /dev/$nvmeDrive to $targetLUKS ...\n===" | glow
+cryptsetup luksOpen /dev/${nvmeDrive} ${targetLUKS}
+echo "success! opening ..."
+sleep 1
+
+ls -l /dev/mapper/${targetLUKS}
+cryptsetup -v status $targetLUKS
+cryptsetup luksDump /dev/${nvmeDrive}
+
+mount /dev/mapper/${targetLUKS} /srv/luks/${nvmeDrive}
+
+echo
+cat <<- EOF | glow
+Done; LUKS info above.
+===
+
+## The following was run:
+
+  mount /dev/mapper/${targetLUKS} /srv/luks/${nvmeDrive}
+
+## To close:
+
+  _unmount-nas-shares && luks-close_
+EOF
